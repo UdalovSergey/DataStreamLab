@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dto.RequestDto;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.Duration;
@@ -13,10 +14,7 @@ import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
-import org.apache.spark.streaming.kafka010.ConsumerStrategies;
-import org.apache.spark.streaming.kafka010.KafkaUtils;
-import org.apache.spark.streaming.kafka010.LocationStrategies;
-import org.apache.spark.streaming.kafka010.OffsetRange;
+import org.apache.spark.streaming.kafka010.*;
 import scala.Tuple2;
 
 import java.util.Arrays;
@@ -26,6 +24,9 @@ import java.util.Map;
 import java.util.function.Function;
 
 public class EventStream {
+
+    private static final int WINDOW_DURATION = 10000; //ms
+    private static final int SLIDE_DURATION = 1000; //ms
 
     public static void main(String... arg) {
         Map<String, Object> kafkaParams = new HashMap<>();
@@ -58,11 +59,10 @@ public class EventStream {
         JavaPairDStream<String, String> clickView = requests.mapToPair((PairFunction<RequestDto, String, String>) r ->
                 new Tuple2<>(r.getIp(), r.getType()));
 
-        clickView.groupByKeyAndWindow(new Duration(10000), new Duration(1000)).foreachRDD((rdd, time) -> {
+        clickView.groupByKeyAndWindow(new Duration(WINDOW_DURATION), new Duration(SLIDE_DURATION)).foreachRDD((rdd, time) -> {
             System.out.println("--- New RDD with " + rdd.partitions().size() + " partitions and " + rdd.count() + " records");
-
             rdd.foreach(record -> {
-                int views = 0, clicks = 0; //trick to solve dividing by zero
+                int views = 0, clicks = 0; //TODO: make a trick to solve dividing by zero problem
                 for (String type : record._2) {
                     if (type.equals("click")) {
                         clicks++;
@@ -76,7 +76,6 @@ public class EventStream {
             });
         });
 
-
         streamingContext.checkpoint("checkpoints/");
         streamingContext.start();
         try {
@@ -86,4 +85,5 @@ public class EventStream {
             e.printStackTrace();
         }
     }
+
 }
