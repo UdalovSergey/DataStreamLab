@@ -41,7 +41,7 @@ public class RequestDto implements Serializable{
         return type;
     }
 
-    //Work around to prevent doing multiple aggregation on stream
+    //Work around to prevent doing multiple aggregation on the stream
     public void setType(String type) {
         this.type = type;
         if(type.equals("click")){

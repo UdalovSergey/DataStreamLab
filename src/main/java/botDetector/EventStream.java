@@ -23,6 +23,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * https://spark.apache.org/docs/2.3.0/streaming-kafka-0-10-integration.html
+ */
 public class EventStream {
 
     private static final int WINDOW_DURATION = 10000; //ms
