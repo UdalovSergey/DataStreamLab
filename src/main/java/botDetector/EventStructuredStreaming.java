@@ -3,11 +3,13 @@ package botDetector;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dto.RequestDto;
 
-import igniteClient.IginteClient;
+//import igniteClient.IginteClient;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryException;
+
+import java.util.Date;
 
 
 public class EventStructuredStreaming {
@@ -16,7 +18,9 @@ public class EventStructuredStreaming {
     private final static String KAFA_HOST = "localhost:9092";
     private final static long CLICK_OVER_VIEW_DIF = 3;
     private final static long EVENT_RATE_THRESHOLD = 1000;
-    private final static IginteClient iginteClient = new IginteClient();
+   // private final static IginteClient iginteClient = new IginteClient();
+    private final static String WINDOW_DURATION = "600 seconds";
+    private final static String SLIDE_DURATION = "50 seconds";
 
     public static void main(String... args) {
 
@@ -48,29 +52,18 @@ public class EventStructuredStreaming {
         }, Encoders.bean(RequestDto.class));
 
         Dataset<Row> windowedCounts = requestDtoDataset
-                .withWatermark("unix_time", "15 seconds")
+              //  .withWatermark("unix_time", "15 seconds")
                 .groupBy(
-                        functions.window(requestDtoDataset.col("unix_time"), "30 seconds", "15 seconds"),
+                        functions.window(requestDtoDataset.col("unix_time"), WINDOW_DURATION, SLIDE_DURATION),
                         requestDtoDataset.col("ip")
                 ).sum("click", "view");
 
         Dataset<Row> windowedCounts1 = windowedCounts.select("window.start", "window.end", "ip", "sum(click)", "sum(view)");
 
-        //        Dataset<Row> windowedCounts1 = windowedCounts
-//                .selectExpr("window.start", "window.end", "ip", "type" ,"count", "CASE WHEN type = 'click' THEN count ELSE 0 END as click_count", "CASE WHEN type = 'view' THEN count ELSE 0 END as view_count");
-//
-//        Dataset<Row> windowedCounts2 = windowedCounts1.groupBy("start", "ip").sum("click_count", "view_count");
-
-//        StreamingQuery query = windowedCounts1.writeStream()
-//                .outputMode("complete")
-//                .format("console")
-//                .start();
-
         StreamingQuery query = windowedCounts1.writeStream()
                 .outputMode("complete")
                 .foreach(new IgniteWriter())
                 .start();
-
         try {
             query.awaitTermination();
         } catch (StreamingQueryException e) {
@@ -79,7 +72,7 @@ public class EventStructuredStreaming {
     }
 
     private static boolean isRobot(long clicks, long views) {
-        return views > 0 && clicks / views > CLICK_OVER_VIEW_DIF || clicks + views > EVENT_RATE_THRESHOLD;
+        return views > 0 && clicks / views >= CLICK_OVER_VIEW_DIF || clicks + views > EVENT_RATE_THRESHOLD;
     }
 
     static class IgniteWriter extends ForeachWriter<Row> {
@@ -97,8 +90,8 @@ public class EventStructuredStreaming {
             views = views == 0 && clicks >= CLICK_OVER_VIEW_DIF ? 1 : views;
 
             if (isRobot(clicks, views)) {
-                System.out.println("Bot detected: " + value.getString(value.fieldIndex("ip")));
-                iginteClient.putBot(value.getString(value.fieldIndex("ip")));
+                System.out.println("Bot detected: " + value.getString(value.fieldIndex("ip")) + " clicks:" + clicks + " views:" + views);
+               // iginteClient.putBot(value.getString(value.fieldIndex("ip")));
             }
         }
 

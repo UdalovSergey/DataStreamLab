@@ -12,6 +12,7 @@ public class RequestDto implements Serializable{
     private Timestamp unix_time;
     private int view;
     private int click;
+    private String category_id;
 
     public RequestDto() {
     }
@@ -56,7 +57,7 @@ public class RequestDto implements Serializable{
     }
 
     public void setUnix_time(Timestamp unix_time) {
-        this.unix_time = unix_time;
+        this.unix_time = new Timestamp(unix_time.getTime()*1000L);
     }
 
     public int getView() {
@@ -73,5 +74,13 @@ public class RequestDto implements Serializable{
 
     public void setClick(int click) {
         this.click = click;
+    }
+
+    public String getCategory_id() {
+        return category_id;
+    }
+
+    public void setCategory_id(String category_id) {
+        this.category_id = category_id;
     }
 }
